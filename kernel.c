@@ -1,4 +1,5 @@
-#include <kernel.h>
+#include "kernel.h"
+#include "common.h"
 
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
@@ -6,8 +7,8 @@ typedef uint32_t size_t;
 
 extern char __bss[], __bss_end[], __stack_top[];
 
-__attribut__((section(".text.boot")))
-__attribute__ ((naked))
+__attribute__((section(".text.boot")));
+__attribute__ ((naked));
 
 void boot(void){
 	__asm__ __volatile__(
@@ -39,11 +40,70 @@ void putchar(char ch){
 	sbi_call(ch, 0, 0, 0, 0, 0, 0, 1);
 }
 
-void kernel_main(void){
-	const char *s = "\n\nHello World!\n";
-	for(int i=0; s[i] != '\0'; i++){
-		putchar(s[i]);
+void printf(const char *fmt, ...){
+	va_list vargs;
+	va_start(vargs, fmt);
+
+	while(*fmt){
+		if(*fmt == '%'){
+			fmt++;
+			switch(*fmt){
+				case '\0':
+					putchar('%');
+					goto end;
+				case '%':
+					putchar('%');
+					break;
+				case 's':{
+					const char *s = va_arg(vargs, const char *);
+					while(*s){
+						putchar(*s);
+						s++;
+					}
+					break;
+				}
+
+				case 'd':{
+					int value = va_arg(vargs, int);
+					unsigned magnitude = value;
+					if(value < 0){
+						putchar('-');
+						magnitude = -magnitude;
+					}
+
+					unsigned divisor = 1;
+					while(magnitude / divisor >9) divisor*=10;
+
+					while(divisor>0){
+						putchar('0' + magnitude/divisor);
+						magnitude %=divisor;
+						divisor/=10;
+					}
+					break;
+				}
+
+				case 'x':{
+					unsigned val = va_arg(vargs, unsigned);
+			       		for(int i=7; i>=0; i--){
+						unsigned nibble = (val >> (i*4)) & 0xf;
+						putchar("0123456789abcdef"[nibble]);
+					}	
+				}
+			}
+		}
+		else putchar(*fmt);
+		fmt++;
 	}
 
-	for(;;) __asm__ __volatile__("wfi") //wait for interupt
+end: 
+	va_end(vargs);
+
+}
+
+void kernel_main(void){
+	const char *s = "\n\nHello World!\n";
+	printf("%s", s);
+	printf("1 + 2 = %d, %x\n", 1+2, 0x1234abcd);
+
+	for(;;) __asm__ __volatile__("wfi"); //wait for interupt
 }
