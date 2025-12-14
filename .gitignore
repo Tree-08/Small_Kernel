@@ -1,3 +1,4 @@
+/practice/
 /disk/*
 !/disk/.gitkeep
 *.map
